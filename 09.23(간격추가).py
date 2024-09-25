@@ -36,6 +36,7 @@ class LEDControlApp:
 		
 		self.quit_button = tk.Button(master, text="종료", command=self.quit)
 		self.quit_button.pack()
+		
 
 	def start_blinking(self):
 		try:
