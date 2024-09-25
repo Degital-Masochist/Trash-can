@@ -45,12 +45,12 @@ class LEDControlApp:
 			
 			if blink_count <= 0:
 				raise ValueError
-            #
-            if twinkle <= 0:
-                raise fucked
+			#
+			if twinkle <= 0:
+				raise fucked
 				
 			#
-            for _ in range(blink_count):
+			for _ in range(blink_count):
 				GPIO.output(self.led_pin, GPIO.HIGH)
 				self.master.update()
 				time.sleep(twinkle)
@@ -59,7 +59,7 @@ class LEDControlApp:
 				time.sleep(twinkle)
 
 			messagebox.showinfo("완료", f"LED가 {blink_count}번 깜빡였습니다.")
-            messagebox.showinfo(f"Twinkle interval: {twinkle}(s)")
+			messagebox.showinfo(f"Twinkle interval: {twinkle}(s)")
 
 		except ValueError:
 			messagebox.showerror("오류", "유효한 숫자를 입력해 주세요.")
