@@ -5,6 +5,7 @@ from tkinter import messagebox
 #
 class fucked(Exception):
     pass
+	
 
 class LEDControlApp:
 	def __init__(self, master):
