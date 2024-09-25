@@ -65,10 +65,10 @@ class LEDControlApp:
 
 		except ValueError:
 			messagebox.showerror("오류", "유효한 숫자를 입력해 주세요.")
-			
-        #
-        except fucked:
-            messagebox.showerror("Value ERROR")
+
+		#
+		except fucked:
+			messagebox.showerror("Value ERROR")
 
 	def quit(self):
 			GPIO.cleanup()
