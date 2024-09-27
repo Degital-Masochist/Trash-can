@@ -56,14 +56,13 @@ class LEDControlApp:
 				self.master.update()
 				time.sleep(twinkle)
 
-			messagebox.showinfo("완료", f"LED가 {blink_count}번 깜빡였습니다.")
-			messagebox.showinfo(f"Twinkle interval: {twinkle}(s)")
+			messagebox.showinfo("완료", f"LED가 {blink_count}번 깜빡였습니다.\nTwinkle interval : {twinkle}(s)")
 
 		except ValueError:
 			messagebox.showerror("오류", "유효한 숫자를 입력해 주세요.")
 
 		except fucked:
-			messagebox.showerror("Value ERROR")
+			messagebox.showerror("ERROR", "Check twinkle interval value.")
 
 	def quit(self):
 			GPIO.cleanup()
