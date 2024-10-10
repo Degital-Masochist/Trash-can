@@ -5,7 +5,7 @@ import time
 
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BCM)
-GPIO.setmode(18, GPIO.OUT)
+GPIO.setup(18, GPIO.OUT)
 
 pwm = GPIO.PWM(18, 50)
 pwm.start(0)
@@ -25,7 +25,7 @@ class LEDControlApp:
 		self.freq_label.pack(pady=10)
 		
 		self.toggle_button = tk.Button(master, text="시작", command=self.toggle_pwm)
-		self.toggle.pack(pady=20)
+		self.toggle_button.pack(pady=20)
 		
 		self.quit_button = tk.Button(master, text="종료", command=self.quit)
 		self.quit_button.pack(pady=20)
@@ -56,3 +56,27 @@ class LEDControlApp:
 					break
 				self.update_pwm(dc)
 				time.sleep(0.1)
+				
+	def update_pwm(self, range):
+		pwm.ChangeDutyCycle(range)
+		self.duty_label.config(text=f"Duty Cycle : {range}%")
+
+	def update_duty_label(self):
+		self.duty_label.config(text=f"Duty Cycle : {range}%")
+
+	def quit(self):
+		pwm.stop()
+		GPIO.cleanup()
+		self.master.quit()
+
+def main():
+	root= tk.Tk()
+	app= LEDControlApp(root)
+		
+	try:
+		root.mainloop()
+	finally:
+		app.quit()
+			
+if __name__ == "__main__":
+	main()
