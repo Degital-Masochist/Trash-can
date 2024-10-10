@@ -61,10 +61,15 @@ class LEDControlApp:
 		pwm.ChangeDutyCycle(dc)
 		self.duty_label.config(text=f"Duty Cycle : {dc}%")
 		if dc == 100:
-			self.duty_label.config(text=f"Duty Cycle : {dc}%\n앙")
+			self.toggle_button.config(text="앙")
+		else:
+			self.toggle_button.config(text="정지")
+		if dc == 0:
+			self.quit_button.config(text="앙")
+		else:
+			self.quit_button.config(text="종료")
 
 	def quit(self):
-		pwm.stop()
 		GPIO.cleanup()
 		self.master.quit()
 
