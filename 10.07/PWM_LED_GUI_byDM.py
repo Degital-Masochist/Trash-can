@@ -50,8 +50,6 @@ class LEDControlApp:
 					break
 				self.update_pwm(dc)
 				time.sleep(0.1)
-				if dc == 101:
-					print("앙")
 				
 			for dc in range(100, -1, -5):
 				if not self.is_running:
@@ -62,6 +60,8 @@ class LEDControlApp:
 	def update_pwm(self, dc):
 		pwm.ChangeDutyCycle(dc)
 		self.duty_label.config(text=f"Duty Cycle : {dc}%")
+		if dc == 100:
+			self.duty_label.config(text=f"Duty Cycle : {dc}%\n앙")
 
 	def quit(self):
 		pwm.stop()
