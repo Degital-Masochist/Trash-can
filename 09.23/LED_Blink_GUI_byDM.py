@@ -2,7 +2,7 @@ import RPi.GPIO as GPIO
 import time
 import tkinter as tk
 from tkinter import messagebox
-class fucked(Exception):
+class a(Exception):
     pass
 	
 
@@ -46,7 +46,7 @@ class LEDControlApp:
 				raise ValueError
 
 			if twinkle <= 0:
-				raise fucked
+				raise a
 				
 			for _ in range(blink_count):
 				GPIO.output(self.led_pin, GPIO.HIGH)
@@ -61,7 +61,7 @@ class LEDControlApp:
 		except ValueError:
 			messagebox.showerror("오류", "유효한 숫자를 입력해 주세요.")
 
-		except fucked:
+		except a:
 			messagebox.showerror("ERROR", "Check twinkle interval value.")
 
 	def quit(self):
