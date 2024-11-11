@@ -3,13 +3,17 @@ import time
 import tkinter as tk
 import threading
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-
 TRIG = 23
 ECHO = 24
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
 GPIO.setup(TRIG,GPIO.OUT)
 GPIO.setup(ECHO,GPIO.IN)
+GPIO.setup(18, GPIO.OUT)
+pwm = GPIO.PWM(18, 50)
+pwm.start(0)
+pwm.ChangeFrequency(523)
 
 class DistanceApp:
 	def __init__(self, master):
@@ -18,6 +22,9 @@ class DistanceApp:
 		
 		self.distance_label = tk.Label(master, text="Distance: - cm", font=("Helvetica", 24))
 		self.distance_label.pack(pady=20)
+		
+		self.status_label = tk.Label(master, text="Ready")
+		self.status_label.pack(pady=10)
 		
 		self.toggle_button = tk.Button(master, text= "측정 시작", command=self.toggle_measurement)
 		self.toggle_button.pack(pady=10)
@@ -36,10 +43,12 @@ class DistanceApp:
 		self.toggle_button.config(text="측정 중지")
 		self.measurement_thread = threading.Thread(target=self.measure_distance)
 		self.measurement_thread.start()
+		self.status_label.config(text="측정 중")
 		
 	def stop_measurement(self):
 		self.is_measuring = False
 		self.toggle_button.config(text="측정 시작")
+		self.status_label.config(text="대기 중")
 		if self.measurement_thread:
 			self.measurement_thread.join()
 			
@@ -63,6 +72,14 @@ class DistanceApp:
 			self.update_distance(distance)
 			time.sleep(0.1)
 			
+			if distance <= 50:
+				self.status_label.config(text="Alert!")
+				pwm.ChangeDutyCycle(20)
+				time.sleep(0.1)
+				pwm.ChangeDutyCycle(0)
+				time.sleep(0.1)
+				self.status_label.config(text="측정 중")
+			
 	def update_distance(self, distance):
 		self.master.after(0, lambda: self.distance_label.config(text=f"거리 : {distance:.1f} cm"))
 		
@@ -70,6 +87,7 @@ class DistanceApp:
 		self.stop_measurement()
 		GPIO.cleanup()
 		self.master.quit()
+		self.pwm.stop()
 		
 def main():
 	root = tk.Tk()
