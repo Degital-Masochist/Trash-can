@@ -70,6 +70,7 @@ def main():
 	root = tk.Tk()
 	app = servoapp(root)
 	root.protocol("WM_DELETE_WINDOW", app.quit)
+	root.geometry("800x600")
 	root.mainloop()
 	
 if __name__ == "__main__":
