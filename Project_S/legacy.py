@@ -4,20 +4,15 @@
 import os
 import time
 import camera
-import atexit
 import pygame
 import random
-import openai
-import pyaudio
-import picamera2
 import threading
 import tkinter as tk
-import RPi.GPIO as GPIOss
+import RPi.GPIO as GPIO
 import speech_recognition as sr
 from PIL import Image, ImageTk
 from gps_speed import GPSReader
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from gtts import gTTS
+from concurrent.futures import TimeoutError
 
 SERVO_PIN = 2
 BUTTON_PIN = 3
@@ -122,7 +117,6 @@ class servoapp:
 		self.voice_running = True
 
 		threading.Thread(target = self.gpio_button_detect).start()
-		threading.Thread(target = self.voice_recognition, daemon = True).start()
 		self.turbo_sound_isExist()
 		self.start()
 		
@@ -152,7 +146,7 @@ class servoapp:
 				self.CameraApp.camera_frame.image = tk_image
 				
 			except Exception as e:
-				print(f"Error in capture_image: {e}")		
+				print(f"Error in capture_image: {e}")
 						
 			if self.preview_active:
 					self.master.after(5, capture_image)
