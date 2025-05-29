@@ -13,11 +13,10 @@ def find_gamepad(keywords=None):
             print(f"Matched device: {joystick.name} at {joystick.path}")
             print("/////Joystick CONNECTED/////")
             return InputDevice(joystick.path)
-    print("No matching gamepad found.")
     return None
 
 gamepad = find_gamepad()
 
 if gamepad is None:
-    print("Gamepad not found")
+    print("WARNING : Gamepad not found.")
     exit(1)
