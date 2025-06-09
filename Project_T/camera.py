@@ -78,7 +78,7 @@ class InferenceThread(threading.Thread):
 def main():
     picam2 = Picamera2()
     picam2.configure(picam2.create_preview_configuration(
-        main={"size": (360, 360)},
+        main={"size": (480, 360)},	# CAM SIZE LIMIT
         transform=libcamera.Transform(hflip=True, vflip=True)))
     picam2.start()
 
