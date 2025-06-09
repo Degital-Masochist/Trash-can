@@ -1,134 +1,100 @@
-import tkinter as tk
-import threading
-from PIL import Image, ImageTk
-import time
+import cv2
 import libcamera
 from picamera2 import Picamera2
-import cv2
 import numpy as np
 from ultralytics import YOLO
-from flask import Flask, Response, render_template_string
+import threading
+import time
 
-app = Flask(__name__)
+class CaptureThread(threading.Thread):
+    def __init__(self, picam2):
+        super().__init__()
+        self.picam2 = picam2
+        self.frame = None
+        self.stopped = False
+        self.lock = threading.Lock()
 
-output_frame = None
-frame_lock = threading.Lock()
-running = True
+    def run(self):
+        while not self.stopped:
+            frame = self.picam2.capture_array()
+            with self.lock:
+                self.frame = frame
 
-class CameraApp:
-	def __init__(self, master):
-		self.master = master
-		master.title("YOLOv8 Person Detect System")
+    def read(self):
+        with self.lock:
+            return self.frame.copy() if self.frame is not None else None
 
-		self.picam2 =Picamera2()
-		self.picam2.configure(self.picam2.create_preview_configuration(
-			main={"size": (1024, 768)},
-			transform=libcamera.Transform(hflip=True, vflip=True)))
-		self.picam2.start()
+    def stop(self):
+        self.stopped = True
 
-		self.preview_label = tk.Label(master)
-		self.preview_label.pack()
+class InferenceThread(threading.Thread):
+    def __init__(self, capture_thread, model, fps):
+        super().__init__()
+        self.capture_thread = capture_thread
+        self.model = model
+        self.stopped = False
+        self.fps = fps
+        self.frame_interval = 1.0 / fps
 
-		self.model = YOLO("yolov8n.pt")
+    def run(self):
+        last_time = time.time()
+        while not self.stopped:
+            current_time = time.time()
+            elapsed = current_time - last_time
+            if elapsed < self.frame_interval:
+                time.sleep(self.frame_interval - elapsed)
+            last_time = time.time()
 
-		self.photo = None
-		self.running = True
+            frame = self.capture_thread.read()
+            if frame is None:
+                continue
 
-		self.thread = threading.Thread(target=self.process_frames)
-		self.thread.daemon = True
-		self.thread.start()
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            results = self.model.predict(frame_bgr, imgsz=320, verbose=False, conf=0.5)[0]
 
-		self.update_gui()
+            boxes = results.boxes
+            xyxy = boxes.xyxy.cpu().numpy()
+            cls = boxes.cls.cpu().numpy().astype(int)
+            conf = boxes.conf.cpu().numpy()
 
-	def process_frames(self):
-		global output_frame
-		while self.running:
-			frame = self.picam2.capture_array()
-			frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-			results = self.model.predict(frame_bgr, verbose=False)[0]
+            for box, class_id, confidence in zip(xyxy, cls, conf):
+                if class_id == 0 and confidence > 0.5:
+                    x1, y1, x2, y2 = map(int, box)
+                    label = f"Person {confidence * 100:.1f}%"
+                    cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.putText(frame_bgr, label, (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-			boxes = results.boxes.xyxy.cpu().numpy()
-			classes = results.boxes.cls.cpu().numpy().astype(int)
-			confidences = results.boxes.conf.cpu().numpy()
+            cv2.imshow("YOLOv8 Person Detection", frame_bgr)
 
-			for box, cls, conf in zip(boxes, classes, confidences):
-				if cls == 0 and conf > 0.5:
-					x1, y1, x2, y2 = map(int, box)
-					label = f"Person {conf * 100:.1f}%"
-					cv2.rectangle(frame_bgr, (x1, y1), (x2, y2), (0, 0, 255), 2)
-					cv2.putText(frame_bgr, label, (x1, y1 - 10),
-								cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-
-			with frame_lock:
-				output_frame = frame_bgr.copy()
-
-			frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-			img = Image.fromarray(frame_rgb)
-			self.photo = ImageTk.PhotoImage(img)
-
-			time.sleep(0.03)
-
-	def update_gui(self):
-		if self.photo:
-			self.preview_label.config(image=self.photo)
-			self.preview_label.image = self.photo
-		if self.running:
-			self.master.after(25, self.update_gui)
-
-	def quit(self):
-		self.running = False
-		self.picam2.stop()
-		self.master.destroy()
-
-@app.route('/')
-def index():
-	return render_template_string("""
-		<html>
-		<head><title>YOLOv8 Person Detection Stream</title></head>
-		<body>
-			<h1>YOLOv8 Person Detection</h1>
-			<img src="{{ url_for('video_feed') }}" style= "max-width : 100%; height : auto;">
-		</body>
-		</html>
-	""")
-
-def generate_stream():
-	global output_frame
-	while running:
-		with frame_lock:
-			if output_frame is None:
-				continue
-			ret, buffer = cv2.imencode('.jpg', output_frame)
-			frame_bytes = buffer.tobytes()
-		yield (b'--frame\r\n'
-			   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-		time.sleep(0.05)
-
-@app.route('/video_feed')
-def video_feed():
-	return Response(generate_stream(),
-					mimetype='multipart/x-mixed-replace; boundary=frame')
-
-def start_flask():
-	app.run(host='0.0.0.0', port=1557, threaded=True)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                self.stop()
+                self.capture_thread.stop()
+                break
+                
+    def stop(self):
+        self.stopped = True
 
 def main():
-	global running
-	root = tk.Tk()
-	camera_app = CameraApp(root)
+    picam2 = Picamera2()
+    picam2.configure(picam2.create_preview_configuration(
+        main={"size": (360, 360)},
+        transform=libcamera.Transform(hflip=True, vflip=True)))
+    picam2.start()
 
-	flask_thread = threading.Thread(target=start_flask)
-	flask_thread.daemon = True
-	flask_thread.start()
+    model = YOLO("yolov8n.pt")
 
-	def on_closing():
-		global running
-		running = False
-		camera_app.running= False
-		camera_app.quit()
+    capture_thread = CaptureThread(picam2)
+    inference_thread = InferenceThread(capture_thread, model, fps=3)    # FPS LIMIT
 
-	root.protocol("WM_DELETE_WINDOW", on_closing)
-	root.mainloop()
+    capture_thread.start()
+    inference_thread.start()
+
+    inference_thread.join()
+    capture_thread.join()
+
+    picam2.stop()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-	main()
+    main()
