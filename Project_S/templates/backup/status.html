@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PARKING</title>
+    <style>
+        .led { width: 20px; height: 20px; border-radius: 50%; display: inline-block; margin-left: 10px; vertical-align: middle; }
+        .btn { padding: 5px 10px; margin-left: 10px; }
+        .parking-container { text-align: center; }
+        .status-list { margin-top: 20px; width: 600px; margin-left: auto; margin-right: auto; font-family: Arial, sans-serif; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin-bottom: 10px; }
+        #header { display: flex; justify-content: space-between; align-items: center; width: 600px; margin: 20px auto 0 auto; font-family: Arial, sans-serif; }
+        #logout-btn { padding: 5px 10px; background-color: #f44336; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        .user-info { text-align: center; margin-top: 10px; font-size: 14px; color: #333; }
+    </style>
+    <script>
+        let reservationTimers = {};
+        let penaltySeconds = 0;
+
+        async function fetchStatus() {
+            const response = await fetch('/api/status');
+            const data = await response.json();
+            const statusList = document.getElementById('status-list');
+            statusList.innerHTML = '';
+
+            reservationTimers = data.timers || {};
+            const reservationOwners = data.reservation_owners || {};
+            const currentUser = "{{ username }}";
+            const userBanned = data.ban_user;
+
+            for (const device in data.status) {
+                const signal = data.status[device];
+                const reserved = data.reservations[device] || false;
+                const redAlert = data.red_alerts[device] || 0;
+                const remaining = reservationTimers[device] || 0;
+                const owner = reservationOwners[device] || '';
+
+                let color = 'green';
+                let label = '';
+
+                if (redAlert == 1) {
+                    color = 'red';
+                    label = 'Occupied';
+                } else if (redAlert == 2) {
+                    color = 'yellow';
+                    label = 'Parking';
+                } else if (reserved) {
+                    color = 'yellow';
+                    label = 'Reserved';
+                } else {
+                    color = 'green';
+                    label = 'Empty';
+                }
+                let timer = '';
+                if (reserved && remaining > 0 && redAlert !== 1 && owner === currentUser) {
+                    timer = `<span id="timer-${device}"></span>`;
+                }
+
+                const canReserve = !reserved && signal === 0 && !userBanned;
+                const canComplete = reserved && signal === 1 && owner === currentUser;
+
+                const li = document.createElement('li');
+                li.innerHTML = `Spot No.${device}: <span class="led" style="background-color:${color}"></span> ${label} ${timer} 
+                    ${canReserve ? `<button class="btn" onclick="reserve('${device}')">Reserve</button>` : ''}
+                    ${canComplete ? `<button class="btn" onclick="complete('${device}')">Confirm Parking</button>` : ''}`;
+                statusList.appendChild(li);
+            }
+        }
+
+        function reserve(deviceId) {
+            if (confirm("Do you want to reserve this spot?")) {
+                fetch('/reserve/' + deviceId, { method: 'POST' }).then(() => fetchStatus());
+            }
+        }
+
+        function complete(deviceId) {
+            if (confirm("Mark parking as complete?")) {
+                fetch('/complete/' + deviceId, { method: 'POST' }).then(() => fetchStatus());
+            }
+        }
+
+        function logout() {
+            window.location.href = '/logout';
+        }
+
+        function updateTimers() {
+            for (const device in reservationTimers) {
+                if (reservationTimers[device] > 0) {
+                    reservationTimers[device] -= 1;
+                    const t = reservationTimers[device];
+                    const minutes = Math.floor(t / 60);
+                    const seconds = t % 60;
+                    const el = document.getElementById(`timer-${device}`);
+                    if (el) {
+                        el.textContent = ` (left: ${minutes}m ${seconds}s)`;
+                    }
+                }
+            }
+        }
+
+        setInterval(updateTimers, 1000);
+        setInterval(fetchStatus, 3000);
+        window.onload = fetchStatus;
+    </script>
+</head>
+<body>
+    <div id="header">
+        <div>Logged in as: <strong>{{ username }}</strong></div>
+        <button id="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    <div class="user-info" id="user-info"></div>
+    <h1 style="text-align: center;">Parking Status Dashboard</h1>
+    <div class="parking-container">
+        <img src="/static/park.jpg" alt="Parking Lot" width="600">
+    </div>
+    <div class="status-list">
+        <ul id="status-list"></ul>
+    </div>
+</body>
+</html>
