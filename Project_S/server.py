@@ -118,7 +118,7 @@ def complete_parking(mcu_id):
             status_data[mcu_id] = 0
     return jsonify({'success': True})
 
-@app.route('/', methods=['POST'])
+@app.route('/update', methods=['POST'])
 def update_status():
     data = request.get_json()
     mcu_id = data.get('id')
