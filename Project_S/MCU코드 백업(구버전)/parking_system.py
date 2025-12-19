@@ -1,13 +1,19 @@
-import network
+import network 
 import urequests
 import uasyncio as asyncio
 import time
 from machine import Pin, time_pulse_us
 
 MCU_ID = "1"
-SSID = "IGONAN"
+#HOT sopt Network set
+#SSID = "IGONAN"
+#PASSWORD = "12345667"
+#SERVER_IP = "10.23.211.208"
+
+#ipTIME local Network set
+SSID = "1557"
 PASSWORD = "12345667"
-SERVER_IP = "10.210.236.208"
+SERVER_IP = "10.0.0.1"
 
 pin_r = Pin(15, Pin.OUT)
 pin_g = Pin(2, Pin.OUT)
@@ -21,12 +27,17 @@ led_color = "off"
 
 def connect_wifi():
     if wlan.isconnected():
-        print("network: already connected")
+        ssid = wlan.config('essid')
+        ip = wlan.ifconfig()[0]
+        print("Already Connected\n",ssid, "|", ip)
         return True
     wlan.active(True)
     wlan.connect(SSID, PASSWORD)
     for _ in range(10):
         if wlan.isconnected():
+            ssid = wlan.config('essid')
+            ip = wlan.ifconfig()[0]
+            print("Connected\n",ssid, "|", ip)
             return True
         time.sleep(1)
     return False
@@ -78,14 +89,16 @@ async def task_led_status():
     while True:
         if wlan.isconnected():
             led_color = fetch_led_status()
-            #print("server led color: ", led_color)
-        await asyncio.sleep(1.5)
+        await asyncio.sleep(2)
 
 async def task_led_apply():
+    prev_color = None
     while True:
-        set_led_color(led_color)
-        print("set led color: ", led_color)
-        await asyncio.sleep(1)
+        if led_color != prev_color:
+            set_led_color(led_color)
+            print(led_color)
+            prev_color = led_color
+        await asyncio.sleep(2)
 
 async def task_distance():
     while True:
@@ -103,6 +116,7 @@ async def task_distance():
                 send_signal(0)
         else:
             print("sensor error")
+            send_signal(3)
         await asyncio.sleep(1)	#sensor check term
 
 async def main():
@@ -111,6 +125,6 @@ async def main():
     asyncio.create_task(task_led_apply())
     asyncio.create_task(task_distance())
     while True:
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1)
 
 asyncio.run(main())
