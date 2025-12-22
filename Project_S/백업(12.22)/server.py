@@ -2,9 +2,10 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, s
 from threading import Lock
 import threading
 import time
+from account import USERS, SECRET_KEY
 
 app = Flask(__name__)
-app.secret_key = 'test'
+app.secret_key = SECRET_KEY
 
 status_data = {}
 status_lock = Lock()
@@ -14,14 +15,10 @@ previous_signals = {}
 signal_counters = {}
 reservation_timers = {}
 RED_ALERT = {}
-MCU_IDS = ['1', '2', '3', '4', '5', '6', '7', '8']
-users = {
-    'user1': 'pass1',
-    'user2': 'pass2',
-    'user3' : 'pass3',
-    'admin': 'admin'
-}
+MCU_COUNT = 30 #Number of MCU
+MCU_IDS = [str(i) for i in range(1, MCU_COUNT + 1)]
 
+users = USERS
 user_ban = {}
 
 def is_user_banned(username):

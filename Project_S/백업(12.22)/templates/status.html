@@ -38,7 +38,11 @@
                 let color = 'green';
                 let label = '';
 
-                if (redAlert == 1) {
+                if (signal === 3) {
+                    color = 'blue';
+                    label = 'Sensor Error';
+                }
+                else if (redAlert == 1) {
                     color = 'red';
                     label = 'Occupied';
                 } else if (redAlert == 2) {
