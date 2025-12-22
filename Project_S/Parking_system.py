@@ -25,11 +25,15 @@ wlan = network.WLAN(network.STA_IF)
 
 led_color = "off"
 
+def now_hms():
+    t = time.localtime()
+    return "{:02d}:{:02d}:{:02d}".format(t[3], t[4], t[5])
+
 def connect_wifi():
     if wlan.isconnected():
         ssid = wlan.config('essid')
         ip = wlan.ifconfig()[0]
-        print("Already Connected\n",ssid, "|", ip)
+        print("Already Connected\n", ssid, "|", ip)
         return True
     wlan.active(True)
     wlan.connect(SSID, PASSWORD)
@@ -37,7 +41,7 @@ def connect_wifi():
         if wlan.isconnected():
             ssid = wlan.config('essid')
             ip = wlan.ifconfig()[0]
-            print("Connected\n",ssid, "|", ip)
+            print("Connected\n", ssid, "|", ip)
             return True
         time.sleep(1)
     return False
@@ -48,6 +52,10 @@ def set_led_color(c):
     elif c == "yellow":
         pin_r.value(0); pin_g.value(0); pin_b.value(1)
     elif c == "green":
+        pin_r.value(1); pin_g.value(1); pin_b.value(1)
+    elif c == "blue":
+        pin_r.value(1); pin_g.value(1); pin_b.value(0)
+    elif c == "off":
         pin_r.value(1); pin_g.value(1); pin_b.value(1)
     else:
         pin_r.value(1); pin_g.value(1); pin_b.value(1)
@@ -65,7 +73,11 @@ def send_signal(s=0):
     if not wlan.isconnected():
         return
     try:
-        r = urequests.post("http://{}:1557/update".format(SERVER_IP), json={"id": MCU_ID, "signal": s}, timeout=1)
+        r = urequests.post(
+            "http://{}:1557/update".format(SERVER_IP),
+            json={"id": MCU_ID, "signal": s},
+            timeout=1
+        )
         r.close()
     except:
         pass
@@ -74,7 +86,10 @@ def fetch_led_status():
     if not wlan.isconnected():
         return "yellow"
     try:
-        r = urequests.get("http://{}:1557/api/led_status/{}".format(SERVER_IP, MCU_ID), timeout=1)
+        r = urequests.get(
+            "http://{}:1557/api/led_status/{}".format(SERVER_IP, MCU_ID),
+            timeout=1
+        )
         if r.status_code == 200:
             c = r.json().get("color", "off")
             r.close()
@@ -96,7 +111,7 @@ async def task_led_apply():
     while True:
         if led_color != prev_color:
             set_led_color(led_color)
-            print(led_color)
+            print(now_hms(), led_color)
             prev_color = led_color
         await asyncio.sleep(2)
 
@@ -108,16 +123,16 @@ async def task_distance():
                 await asyncio.sleep(5)
                 continue
         d = get_distance()
-        print(d, "cm")
         if d >= 0:
+            print(now_hms(), d, "cm")
             if d < 60:
                 send_signal(1)
             else:
                 send_signal(0)
         else:
-            print("sensor error")
+            print(now_hms(), "sensor error")
             send_signal(3)
-        await asyncio.sleep(1)	#sensor check term
+        await asyncio.sleep(1)
 
 async def main():
     connect_wifi()
@@ -128,3 +143,4 @@ async def main():
         await asyncio.sleep(1)
 
 asyncio.run(main())
+
