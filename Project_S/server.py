@@ -105,6 +105,8 @@ def report(mcu_id):
         if reservation_data.get(mcu_id) and status_data.get(mcu_id) == 1:
             ILLEGAL_PARKING[mcu_id] = True
             status_data[mcu_id] = 4
+            previous_signals[mcu_id] = None
+            signal_counters[mcu_id] = 0
     return jsonify({'success': True})
 
 @app.route('/update', methods=['POST'])
@@ -117,14 +119,28 @@ def update():
         return 'Invalid', 400
 
     with status_lock:
+        prev = previous_signals.get(mcu_id)
+        count = signal_counters.get(mcu_id, 0)
+
+        if prev == signal:
+            count += 1
+        else:
+            prev = signal
+            count = 1
+
+        previous_signals[mcu_id] = prev
+        signal_counters[mcu_id] = count
+
         if ILLEGAL_PARKING.get(mcu_id):
-            if signal == 0:
+            if signal == 0 and count >= 3:
                 ILLEGAL_PARKING[mcu_id] = False
+                status_data[mcu_id] = 0
             else:
                 status_data[mcu_id] = 4
-                return 'OK'
+            return 'OK'
 
-        status_data[mcu_id] = signal
+        if count >= 3:
+            status_data[mcu_id] = signal
 
     return 'OK'
 
