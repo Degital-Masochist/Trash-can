@@ -14,7 +14,6 @@ reservation_owner = {}
 previous_signals = {}
 signal_counters = {}
 reservation_timers = {}
-RED_ALERT = {}
 ILLEGAL_PARKING = {}
 
 MCU_COUNT = 30
@@ -66,7 +65,6 @@ def get_status():
             'reservations': {m: reservation_data.get(m, False) for m in connected},
             'reservation_owners': {m: reservation_owner.get(m, '') for m in connected},
             'timers': {m: reservation_timers.get(m, 0) for m in connected},
-            'red_alerts': {m: RED_ALERT.get(m, 0) for m in connected},
             'illegal': {m: ILLEGAL_PARKING.get(m, False) for m in connected},
             'ban_user': is_user_banned(username)
         })
@@ -95,7 +93,6 @@ def complete(mcu_id):
         reservation_data[mcu_id] = False
         reservation_owner[mcu_id] = None
         reservation_timers[mcu_id] = 0
-        RED_ALERT[mcu_id] = 0
         ILLEGAL_PARKING[mcu_id] = False
     return jsonify({'success': True})
 
@@ -104,9 +101,6 @@ def report(mcu_id):
     with status_lock:
         if reservation_data.get(mcu_id) and status_data.get(mcu_id) == 1:
             ILLEGAL_PARKING[mcu_id] = True
-            status_data[mcu_id] = 4
-            previous_signals[mcu_id] = None
-            signal_counters[mcu_id] = 0
     return jsonify({'success': True})
 
 @app.route('/update', methods=['POST'])
@@ -114,48 +108,54 @@ def update():
     data = request.get_json()
     mcu_id = data.get('id')
     signal = data.get('signal')
-
+    
     if mcu_id not in MCU_IDS:
         return 'Invalid', 400
-
+    
     with status_lock:
         prev = previous_signals.get(mcu_id)
         count = signal_counters.get(mcu_id, 0)
-
+        
         if prev == signal:
             count += 1
         else:
             prev = signal
             count = 1
-
+            
         previous_signals[mcu_id] = prev
         signal_counters[mcu_id] = count
-
-        if ILLEGAL_PARKING.get(mcu_id):
-            if signal == 0 and count >= 3:
-                ILLEGAL_PARKING[mcu_id] = False
-                status_data[mcu_id] = 0
-            else:
-                status_data[mcu_id] = 4
-            return 'OK'
-
-        if count >= 3:
-            status_data[mcu_id] = signal
-
+        
+        if signal == 3:
+            if count >= 3:
+                status_data[mcu_id] = signal
+        else:
+            if count >= 3:
+                status_data[mcu_id] = signal
+        
+        if ILLEGAL_PARKING.get(mcu_id) and signal == 0 and count >= 3:
+            ILLEGAL_PARKING[mcu_id] = False
+                
     return 'OK'
 
 @app.route('/api/led_status/<mcu_id>')
 def led_status(mcu_id):
     with status_lock:
         s = status_data.get(mcu_id, 0)
-        if s == 4:
-            return jsonify({'color': 'blue'})
+        is_reserved = reservation_data.get(mcu_id, False)
+        is_illegal = ILLEGAL_PARKING.get(mcu_id, False)
+        
         if s == 3:
-            return jsonify({'color': 'off'})
-        if reservation_data.get(mcu_id):
-            return jsonify({'color': 'yellow'})
+            return jsonify({'color': 'blue_blink'})
+            
+        if is_illegal:
+            return jsonify({'color': 'red_blink'})
+            
         if s == 1:
             return jsonify({'color': 'red'})
+            
+        if is_reserved:
+            return jsonify({'color': 'blue'})
+            
         return jsonify({'color': 'green'})
 
 def timer_thread():
@@ -171,7 +171,6 @@ def timer_thread():
                         reservation_owner[m] = None
         time.sleep(1)
 
-threading.Thread(target=timer_thread, daemon=True).start()
-
 if __name__ == '__main__':
+    threading.Thread(target=timer_thread, daemon=True).start()
     app.run(host='0.0.0.0', port=1557)
